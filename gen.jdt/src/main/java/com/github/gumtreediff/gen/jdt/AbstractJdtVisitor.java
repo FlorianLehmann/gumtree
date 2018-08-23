@@ -58,12 +58,7 @@ public abstract class AbstractJdtVisitor extends ASTVisitor {
     }
 
     protected void pushFakeNode(EntityType n, String label, int startPosition, int length) {
-        int type = -1;
-        try {
-            type = ((Integer) ASTNode.class.getDeclaredField(n.name()).get(null));
-        } catch (IllegalAccessException | NoSuchFieldException e) {
-            e.printStackTrace();
-        }
+        int type = n.getType();
         String typeName = n.getJdtCompliantName();
         push(type, typeName, label, startPosition, length);
     }

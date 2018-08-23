@@ -24,8 +24,9 @@ package com.github.gumtreediff.gen.jdt;
 
 import com.github.gumtreediff.gen.jdt.cd.EntityType;
 import org.eclipse.jdt.core.dom.*;
+import org.eclipse.jdt.internal.compiler.ast.Argument;
 
-public class JdtVisitor  extends AbstractJdtVisitor {
+public class JdtVisitor extends AbstractJdtVisitor {
     public JdtVisitor() {
         super();
     }
@@ -36,14 +37,169 @@ public class JdtVisitor  extends AbstractJdtVisitor {
     }
 
     @Override
+    public boolean visit(IfStatement node) {
+        node.getExpression().accept(this);
+        node.getThenStatement().accept(this);
+        if (node.getElseStatement() != null) {
+            pushFakeNode(EntityType.ELSE_STATEMENT, "", -1, -1);
+            node.getElseStatement().accept(this);
+            popNode();
+        }
+        return false;
+    }
+
+    @Override
+    public boolean visit(MethodInvocation node) {
+
+        if (node.getExpression() != null) {
+            final String expression = node.getExpression().toString();
+            int startPosition = -1;
+            pushFakeNode(EntityType.SIMPLE_NAME, expression, startPosition, expression.length());
+            popNode();
+        }
+
+        if (!node.typeArguments().isEmpty()) {
+            int startPosition = -1;
+            pushFakeNode(EntityType.TYPE_ARGUMENTS, "", startPosition, "".length());
+            for (Object o : node.typeArguments()) {
+                final String expression = ((Type) o).toString();
+                startPosition = -1;
+                pushFakeNode(EntityType.SIMPLE_NAME, expression, startPosition, expression.length());
+                popNode();
+            }
+            popNode();
+        }
+
+        final String methodName = node.getName().toString();
+        int startPosition = -1;
+        pushFakeNode(EntityType.SIMPLE_NAME, methodName, startPosition, methodName.length());
+        popNode();
+
+        if (!node.arguments().isEmpty()) {
+            startPosition = -1;
+            pushFakeNode(EntityType.ARGUMENTS, "", startPosition, "".length());
+            for (Object o : node.arguments()) {
+                final String expression = ((Expression) o).toString();
+                startPosition = -1;
+                pushFakeNode(EntityType.SIMPLE_NAME, expression, startPosition, expression.length());
+                popNode();
+            }
+            popNode();
+        }
+
+        return false;
+    }
+
+    @Override
     public boolean visit(ImportDeclaration node) {
         if (node.isStatic()) {
             final String statik = "static";
-            int startPosition = node.toString().indexOf(statik);
+            int startPosition = node.getRoot().toString().indexOf(statik);
             pushFakeNode(EntityType.MODIFIER, statik, startPosition, statik.length());
             popNode();
         }
         return super.visit(node);
+    }
+
+    @Override
+    public boolean visit(TypeDeclaration node) {
+
+        for (Object o : node.modifiers()) {
+            if (o instanceof Modifier) {
+                ((Modifier) o).accept(this);
+            } else {
+                ((Annotation) o).accept(this);
+            }
+        }
+
+        pushFakeNode(EntityType.SIMPLE_NAME, node.getName().toString(), -1, -1);
+        popNode();
+
+        if (node.getSuperclassType() != null) {
+            pushFakeNode(EntityType.SUPER_CLASS_TYPE, "", -1, -1);
+            node.getSuperclassType().accept(this);
+            popNode();
+        }
+
+        if (!node.superInterfaceTypes().isEmpty()) {
+            pushFakeNode(EntityType.SUPER_INTERFACE_TYPES, "", -1, -1);
+            for (Object o : node.superInterfaceTypes()) {
+                ((Type) o).accept(this);
+            }
+            popNode();
+        }
+
+        for (Object o : node.bodyDeclarations()) {
+            ((BodyDeclaration) o).accept(this);
+        }
+
+
+        return false;
+    }
+
+    @Override
+    public boolean visit(ForStatement node) {
+
+        if (!node.initializers().isEmpty()) {
+            pushFakeNode(EntityType.INITIALIZERS, "", -1, -1);
+            for (Object o : node.initializers()) {
+                ((Expression) o).accept(this);
+            }
+            popNode();
+        }
+
+        if (node.getExpression()!=null) {
+            pushFakeNode(EntityType.CONDITIONAL_FOR_EXPRESSION, "", -1, -1);
+            node.getExpression().accept(this);
+            popNode();
+        }
+
+        if (!node.updaters().isEmpty()) {
+            pushFakeNode(EntityType.UPDATERS, "", -1, -1);
+            for (Object o : node.updaters()) {
+                ((Expression) o).accept(this);
+            }
+            popNode();
+        }
+
+        node.getBody().accept(this);
+        return false;
+    }
+
+    @Override
+    public boolean visit(SuperMethodInvocation node) {
+
+        if (!node.typeArguments().isEmpty()) {
+            int startPosition = -1;
+            pushFakeNode(EntityType.TYPE_ARGUMENTS, "", startPosition, "".length());
+            for (Object o : node.typeArguments()) {
+                final String expression = ((Type) o).toString();
+                startPosition = -1;
+                pushFakeNode(EntityType.SIMPLE_NAME, expression, startPosition, expression.length());
+                popNode();
+            }
+            popNode();
+        }
+
+        final String methodName = node.getName().toString();
+        int startPosition = -1;
+        pushFakeNode(EntityType.SIMPLE_NAME, methodName, startPosition, methodName.length());
+        popNode();
+
+        if (!node.arguments().isEmpty()) {
+            startPosition = -1;
+            pushFakeNode(EntityType.ARGUMENTS, "", startPosition, "".length());
+            for (Object o : node.arguments()) {
+                final String expression = ((Expression) o).toString();
+                startPosition = -1;
+                pushFakeNode(EntityType.SIMPLE_NAME, expression, startPosition, expression.length());
+                popNode();
+            }
+            popNode();
+        }
+
+
+        return false;
     }
 
     protected String getLabel(ASTNode n) {
@@ -62,6 +218,7 @@ public class JdtVisitor  extends AbstractJdtVisitor {
         if (n instanceof TagElement) return ((TagElement) n).getTagName();
         if (n instanceof TypeDeclaration) return ((TypeDeclaration) n).isInterface() ? "interface" : "class";
         if (n instanceof ImportDeclaration) return ((ImportDeclaration) n).isOnDemand() ? "on-demand" : "single-type";
+        if (n instanceof SwitchCase) return ((SwitchCase) n).isDefault() ? "default" : "";
 
         return "";
     }
@@ -80,4 +237,6 @@ public class JdtVisitor  extends AbstractJdtVisitor {
     public void postVisit(ASTNode n) {
         popNode();
     }
+
+
 }
